@@ -3,10 +3,11 @@ from typing import Dict
 import numpy as np
 
 from market.orderbook import OrderBook
+from price_construction.price_production import PriceProduction
 from util.currency_pair import CurrencyPair
 
 
-class VWAPPrice:
+class VWAPPrice(PriceProduction):
     def __init__(self, vwap_mid_price: int, vwap_spread: int):
         self.vwap_mid_price = vwap_mid_price
         self.vwap_spread = vwap_spread
