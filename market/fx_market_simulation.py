@@ -1,44 +1,50 @@
 import random
-from typing import Dict
+from typing import Dict, List
 
 from market.market_maker import MarketMaker
 from market.market_taker import MarketTaker
 from market.orderbook import OrderBook
+from price_construction.price_crossing import PriceCrossing
 from price_construction.vwap_price import VWAPPrice
 from util.currency_pair import CurrencyPair
 from util.side import Side
 
 
 class FXMarketSimulation:
-    def __init__(self, currency_pairs):
-        """
-        currency_pairs: List of CurrencyPair instances.
-        """
+    def __init__(self, currency_pairs: List[CurrencyPair]):
         self.currency_pairs = currency_pairs
-        # Create an OrderBook for each currency pair
+        # Ensure that required pairs for crossing exist.
+        # For instance, to price GBP/SEK, include GBP/USD.
         self.order_books: Dict[CurrencyPair, OrderBook] = {
             cp: OrderBook(currency_pair=cp, book_size=10) for cp in currency_pairs
         }
-        # Create a general price production mechanism (VWAPPrice here)
+        # Create a price production mechanism.
         self.price_production = VWAPPrice(vwap_mid_price=3, vwap_spread=3)
-        # Create a MarketMaker for each currency pair
-        self.market_makers: Dict[CurrencyPair, MarketMaker] = {
-            cp: MarketMaker(currency_pair=cp, price_production=self.price_production, risk_factor=random.uniform(0.5, 1.5))
-            for cp in currency_pairs
-        }
+        for cp, ob in self.order_books.items():
+            self.price_production.update(ob)
+        # Create a PriceCrossing instance.
+        self.price_crossing = PriceCrossing(currency_pairs, self.price_production)
+        # Create one MarketMaker that will price all currency pairs.
+        self.market_maker = MarketMaker(target_currency_pairs=currency_pairs,
+                                        price_crossing=self.price_crossing,
+                                        risk_factor=random.uniform(0.5, 1.5))
 
     def run(self, steps: int = 10):
         for step in range(steps):
             print(f"\n--- Step {step} ---")
-            # Each market maker places orders on its order book
-            for cp, mm in self.market_makers.items():
-                ob = self.order_books[cp]
-                mm.place_orders(ob)
-                consensus_mid, consensus_spread = self.price_production.calculate_consensus_price()
-                print(f"{cp}: Consensus Mid = {consensus_mid:.4f}, Consensus Spread = {consensus_spread:.4f}")
-            # Random market takers place orders on random currency pairs
+            # MarketMaker places orders on every currency pair.
+            self.market_maker.place_orders(self.order_books)
+            # Print consensus prices and strategies.
             for cp, ob in self.order_books.items():
-                order_type = random.choice(list(Side))
-                taker = MarketTaker(order_type, size=random.uniform(1, 5))
+                mid, spread = self.price_production.calculate_consensus_price_for(cp)
+                strat = self.price_crossing.get_pricing_strategy(cp)
+                strat_str = strat["strategy"]
+                if strat_str == "cross":
+                    strat_str += f" via pivot {strat['pivot']}"
+                print(f"{cp}: Mid = {mid:.4f}, Spread = {spread:.4f}, Strategy = {strat_str}")
+            # Random market takers execute orders on random pairs.
+            for cp, ob in self.order_books.items():
+                side = random.choice(list(Side))
+                taker = MarketTaker(side, size=random.uniform(1, 5))
                 price, size = taker.place_order(ob)
-                print(f"MarketTaker {order_type.value} on {cp}: Executed {size:.2f} at {price:.4f}")
+                print(f"MarketTaker {side.value} on {cp}: Executed {size:.2f} at {price:.4f}")

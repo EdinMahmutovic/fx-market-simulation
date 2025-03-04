@@ -5,7 +5,7 @@ from price_construction.price_production import PriceProduction
 from util.currency_pair import CurrencyPair
 
 
-class MarketMaker:
+class MarketTaker:
     def __init__(self, currency_pair: CurrencyPair, price_production: PriceProduction, risk_factor=1):
         self.currency_pair = currency_pair
         self.price_production = price_production
