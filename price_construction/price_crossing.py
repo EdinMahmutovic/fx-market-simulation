@@ -1,5 +1,5 @@
 import random
-from typing import List, Dict
+from typing import Dict, List
 
 from price_construction.price_production import PriceProduction
 from util.currency_pair import CurrencyPair
@@ -7,8 +7,8 @@ from util.currency_pair import CurrencyPair
 
 class PriceCrossing:
     """
-    Encapsulates how each target CurrencyPair is priced.
-    For each target pair, we decide if pricing is "direct" (use its own order book)
+    Encapsulates the pricing strategy for each target CurrencyPair.
+    For each target pair, it decides if pricing is "direct" (use its own order book)
     or "cross" (price via two other pairs using a pivot).
     """
     def __init__(self, target_currency_pairs: List[CurrencyPair], price_production: PriceProduction):
@@ -39,13 +39,13 @@ class PriceCrossing:
                 else:
                     self.strategy_map[cp] = {"strategy": "direct"}
 
-    def get_pricing_strategy(self, target: CurrencyPair):
+    def get_pricing_strategy(self, target: CurrencyPair) -> dict:
         return self.strategy_map.get(target, {"strategy": "direct"})
 
     def generate_mid_price(self, target: CurrencyPair) -> float:
         strat = self.get_pricing_strategy(target)
         if strat["strategy"] == "direct":
-            mid, _ = self.price_production.calculate_consensus_price_for(target)
+            mid, _ = self.price_production.calculate_pair_price(target)
             if mid is None:
                 mid, _ = self.price_production.calculate_consensus_price()
             return mid
@@ -54,13 +54,13 @@ class PriceCrossing:
             pivot = strat["pivot"]
             pair1 = CurrencyPair(target.base, pivot)
             pair2 = CurrencyPair(pivot, target.quote)
-            mid1, _ = self.price_production.calculate_consensus_price_for(pair1)
-            mid2, _ = self.price_production.calculate_consensus_price_for(pair2)
+            mid1, _ = self.price_production.calculate_pair_price(pair1)
+            mid2, _ = self.price_production.calculate_pair_price(pair2)
             if mid1 is None or mid2 is None:
-                mid, _ = self.price_production.calculate_consensus_price_for(target)
+                mid, _ = self.price_production.calculate_pair_price(target)
                 if mid is None:
                     mid, _ = self.price_production.calculate_consensus_price()
                 return mid
             else:
-                # For demonstration, assume A/B = (A/X) * (X/B).
+                # For crossing, assume A/B = (A/X) * (X/B)
                 return mid1 * mid2

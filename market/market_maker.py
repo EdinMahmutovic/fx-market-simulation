@@ -1,5 +1,5 @@
 import random
-from typing import List, Dict
+from typing import Dict, List
 
 from market.orderbook import OrderBook
 from price_construction.price_crossing import PriceCrossing
@@ -12,14 +12,14 @@ class MarketMaker:
                  risk_factor: float = 1.0):
         """
         target_currency_pairs: List of all currency pairs to be priced.
-        price_crossing: An instance of PriceCrossing that encapsulates pricing strategies.
+        price_crossing: Instance of PriceCrossing that encapsulates pricing strategies.
         risk_factor: Influences how aggressively prices are skewed.
         """
         self.target_currency_pairs = target_currency_pairs
         self.price_crossing = price_crossing
         self.risk_factor = risk_factor
 
-    def generate_bid_ask(self, target: CurrencyPair):
+    def generate_bid_ask(self, target: CurrencyPair) -> (float, float):
         mid = self.price_crossing.generate_mid_price(target)
         # Apply a small random skew scaled by risk_factor.
         skew = random.uniform(0.0001, 0.001) * self.risk_factor
